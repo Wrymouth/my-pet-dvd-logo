@@ -16,17 +16,14 @@ if not exist %file_list% (
 
 if not exist build mkdir build
 
-set first_file=true
 for /f %%a in (%file_list%) do (
     set input_file=%%~na
     echo Compiling: %%a
     ca65 --verbose src\%%a -o build\!input_file!.o --debug-info
     if !errorlevel! neq 0 exit /b !errorlevel!
-    if "!first_file!"=="true" (
-        set output_nes_name=!input_file!
-        set first_file=false
-    )
 )
+
+set output_nes_name=dvd_logo
 
 set files_to_link=
 for /f %%a in (%file_list%) do (

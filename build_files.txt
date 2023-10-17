@@ -1,4 +1,5 @@
-dvdlogo.s
+main.s
+food.s
 dvd_entity.s
 reset.s
 controllers.s

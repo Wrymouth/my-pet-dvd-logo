@@ -3,7 +3,14 @@
 .include "include/game_constants.inc"
 
 .segment "ZEROPAGE"
-  pad1: .res 1
+  ; local variables
+  locals: .res 8
+
+  ; controller tracking
+  pad1_pressed: .res 1
+  pad1_held: .res 1
+  pad1_released: .res 1
+
   sleeping: .res 1
   ; ppu data
   scroll: .res 1
@@ -13,19 +20,24 @@
   player_x: .res 1
   score: .res 1
 
+  ; food data
+  food_x: .res NUM_FOODS
+  food_y: .res NUM_FOODS
+  food_flags: .res NUM_FOODS
+
   ; dvd data
   dvd_health: .res NUM_DVDS
-	dvd_x: .res NUM_DVDS
-	dvd_y: .res NUM_DVDS
+  dvd_x: .res NUM_DVDS
+  dvd_y: .res NUM_DVDS
   dvd_dir_x: .res NUM_DVDS
   dvd_dir_y: .res NUM_DVDS
   dvd_flags: .res NUM_DVDS
   
-  ; dvd helpers
-  current_dvd: .res 1
-
-
-.exportzp player_x, dvd_x, dvd_y, dvd_dir_x, dvd_dir_y, dvd_health, pad1
+.exportzp locals
+.exportzp pad1_pressed, pad1_held, pad1_released
+.exportzp player_x, score
+.exportzp food_x, food_y, food_flags
+.exportzp dvd_health, dvd_x, dvd_y, dvd_dir_x, dvd_dir_y, dvd_flags
 
 .segment "CODE"
 
@@ -71,17 +83,18 @@
 .endproc
 
 .import reset_handler
-
-.import update_player
-.import draw_player
-.import update_dvd
-.import draw_dvd
-.import read_controller1
+.import read_controller1, handle_released_and_held
+.import update_player, draw_player
+.import handle_input_food, update_foods, draw_foods
+.import init_dvds, update_dvds, draw_dvds
 
 .export main
 .proc main
+  
   LDA #239   ; Y is only 240 lines tall!
   STA scroll
+  ; set up dvds
+  JSR init_dvds
   ; write a palette
   LDX PPUSTATUS
   LDX #$3f
@@ -244,13 +257,18 @@ vblankwait:       ; wait for another vblank before continuing
   STA PPUMASK
   
 main_loop:
+  ; handle input 
+  LDA pad1_pressed
+  STA pad1_released
+  STA pad1_held
   JSR read_controller1
+  JSR handle_released_and_held
 
+  JSR handle_input_food
   JSR update_player
-  JSR draw_player
+  JSR update_dvds
+  JSR update_foods
 
-  JSR update_dvd
-  JSR draw_dvd
   
   ; Check if PPUCTRL needs to change
   LDA scroll ; did we reach the end of a nametable?
@@ -266,9 +284,14 @@ main_loop:
 
 update_scroll:
   DEC scroll
+
+  ; draw stuff
+  JSR draw_player
+  JSR draw_dvds
+  JSR draw_foods
+
   ; Done processing; wait for next Vblank
   INC sleeping
-  
 sleep:
   LDA sleeping
   BNE sleep
