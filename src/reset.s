@@ -13,6 +13,23 @@
     LDX #$00
     STX PPUCTRL
     STX PPUMASK
+  clear_memory:
+    STA $0000, x
+    STA $0100, x
+    STA $0300, x
+    STA $0400, x
+    STA $0500, x
+    STA $0600, x
+    STA $0700, x
+            
+    LDA #$FF
+    STA $0200, x ;sprites get special treatment
+    LDA #$00
+
+
+    INX
+    CPX #$00
+    BNE clear_memory
   vblankwait:
     BIT PPUSTATUS
     BPL vblankwait

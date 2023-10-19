@@ -4,7 +4,7 @@
 
 .importzp locals
 .importzp score
-.importzp dvd_health, dvd_x, dvd_y, dvd_dir_x, dvd_dir_y, dvd_flags
+.importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
 
 INITIAL_DVD_SPAWN = 2
 
@@ -54,9 +54,19 @@ after_update:
   PUSH_REG
   LDX #$00
 draw_active_dvds:
+
+  LDA dvd_flags,x
+  AND #DVD_FLAG_VISIBLE
+  BEQ after_draw ; branch on flag not set
+  
   LDA dvd_flags,x
   AND #DVD_FLAG_ACTIVE
-  BEQ after_draw
+  BNE after_erase ; branch on flag set
+  
+  LDA dvd_flags,x
+  EOR #DVD_FLAG_VISIBLE
+  STA dvd_flags,x
+after_erase:
   STX current_dvd
   JSR draw_dvd
 after_draw:
@@ -88,12 +98,6 @@ after_draw:
   LDA init_dvd_y,x
   STA dvd_y,x
 
-  ; x and y dir
-  LDA init_dvd_dir_x,x
-  STA dvd_dir_x,x
-  LDA init_dvd_dir_y,x
-  STA dvd_dir_y,x
-
   PULL_REG
   RTS
 .endproc
@@ -105,6 +109,15 @@ after_draw:
 
   PUSH_REG
   LDX current_dvd
+
+  ; check if HP has increased past max
+  LDA dvd_health,x
+  CMP #DVD_MAX_HEALTH+1
+  BNE movement
+  ; destroy DVD
+  JSR destroy_dvd
+  JMP done
+movement:  
   ; init bounces
   LDA #$00
   STA bounces
@@ -114,8 +127,9 @@ after_draw:
   BCC not_at_right_edge
   ; if BCC is not taken, we are greater than $e0 and direction should change
   INC bounces
-  LDA #DVD_MOVING_LEFT
-  STA dvd_dir_x,x    ; start moving left
+  LDA dvd_flags,x
+  EOR #DVD_FLAG_MOVING_RIGHT
+  STA dvd_flags,x    ; start moving left
   JMP direction_set ; we already chose a direction,
                     ; so we can skip the left side check
 not_at_right_edge:
@@ -124,27 +138,25 @@ not_at_right_edge:
   BCS direction_set
   ; if BCS not taken, we are less than $10 and direction should change
   INC bounces
-  LDA #DVD_MOVING_RIGHT
-  STA dvd_dir_x,x   ; start moving right
+  LDA dvd_flags,x
+  ORA #DVD_FLAG_MOVING_RIGHT
+  STA dvd_flags,x    ; start moving right
 direction_set:
   ; now, actually update dvd_x
-  LDA dvd_dir_x,x
-  CMP #DVD_MOVING_RIGHT
-  BEQ move_right
-  ; if dvd_dir_x minus $01 is not zero,
-  ; that means dvd_dir_x was $00 and
-  ; we need to move left
-  DEC dvd_x,x
+  LDA dvd_flags,x
+  AND #DVD_FLAG_MOVING_RIGHT
+  BNE move_right
+  DEC dvd_x,x ; move left
   JMP done_with_x
 move_right:
-  INC dvd_x,x
+  INC dvd_x,x ; move right
 
 done_with_x:
 
   ; y axis 
-  LDA dvd_dir_y,x
-  CMP #DVD_MOVING_UP
-  BEQ move_up
+  LDA dvd_flags,x
+  AND #DVD_FLAG_MOVING_UP
+  BNE move_up
 move_down:
   INC dvd_y,x
   JMP direction_set_y
@@ -160,19 +172,31 @@ direction_set_y:
   JMP done_moving
 at_bottom_edge:
   INC bounces
-  LDA #DVD_MOVING_UP
-  STA dvd_dir_y,x
+  LDA dvd_flags,x
+  ORA #DVD_FLAG_MOVING_UP
+  STA dvd_flags,x    ; start moving up
   JMP done_moving
 at_top_edge:
   INC bounces
-  LDA #DVD_MOVING_DOWN
-  STA dvd_dir_y,x
-
-LDA bounces
-CMP #$02
-BNE done_moving
-INC score
+  LDA dvd_flags,x
+  EOR #DVD_FLAG_MOVING_UP
+  STA dvd_flags,x    ; start moving down
+  
+  LDA bounces
+  CMP #$02
+  BNE done_moving
+  INC score
+  ; after movement, set the bottom and right positions
 done_moving:
+  LDA dvd_x,x
+  CLC
+  ADC #DVD_WIDTH
+  STA dvd_x_right,x
+  LDA dvd_y,x
+  CLC
+  ADC #DVD_HEIGHT
+  STA dvd_y_bottom,x
+done:
   ; all done, clean up and return
   PULL_REG
   RTS
@@ -326,21 +350,28 @@ oam_address_found:
   RTS
 .endproc
 
+.proc destroy_dvd
+  current_dvd := locals+0
+  PUSH_REG
+  LDX current_dvd
+  LDA dvd_flags,x
+  EOR #DVD_FLAG_ACTIVE
+  STA dvd_flags,x
+  LDA #Y_OUT_OF_BOUNDS
+  STA dvd_y,x
+  PULL_REG
+  RTS
+.endproc
+
 .segment "RODATA"
 init_dvd_health:
-.byte $04, $04
+.byte $02, $02
 
 init_dvd_x:
-.byte $10, $40
+.byte $d0, $40
 
 init_dvd_y:
 .byte $60, $38
 
-init_dvd_dir_x:
-.byte DVD_MOVING_RIGHT, DVD_MOVING_LEFT
-
-init_dvd_dir_y:
-.byte DVD_MOVING_UP, DVD_MOVING_UP
-
 init_dvd_flags:
-.byte %11000000, %11000000
+.byte %11010000, %11100000

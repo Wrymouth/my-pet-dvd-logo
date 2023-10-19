@@ -5,6 +5,7 @@
 .importzp locals
 .importzp pad1_held, pad1_pressed, pad1_released
 .importzp food_flags, food_x, food_y
+.importzp dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_health, dvd_flags
 .importzp player_x
 
 .export handle_input_food
@@ -47,8 +48,20 @@ after_update:
   LDX #$00
 draw_active_foods:
   LDA food_flags,x
+  ; AND #FOOD_FLAG_ACTIVE
+  ; BEQ after_draw
+  LDA food_flags,x
+  AND #FOOD_FLAG_VISIBLE
+  BEQ after_draw ; branch on flag not set
+  
+  LDA food_flags,x
   AND #FOOD_FLAG_ACTIVE
-  BEQ after_draw
+  BNE after_erase ; branch on flag set
+
+  LDA food_flags,x
+  EOR #FOOD_FLAG_VISIBLE
+  STA food_flags,x
+after_erase:
   STX current_food
   JSR draw_food
 after_draw:
@@ -73,7 +86,7 @@ check_food_empty:
   AND #FOOD_FLAG_ACTIVE
   BNE check_food_empty
   ; actually create the food
-  LDA #FOOD_FLAG_ACTIVE
+  LDA #FOOD_FLAG_ACTIVE|FOOD_FLAG_VISIBLE
   STA food_flags,x
   LDA player_x
   STA food_x,x
@@ -86,17 +99,70 @@ done:
 
 .proc update_food
   current_food := locals+0
+  current_dvd  := locals+1
   PUSH_REG
   LDX current_food
   INC food_y,x
   LDA food_y,x
   CMP #Y_OUT_OF_BOUNDS
-  BNE done
+  BNE check_collision
   ; deactivate food because it's below the map
-  LDA food_flags,x
-  EOR #%10000000
-  STA food_flags,x
+  JSR destroy_food
+  JMP done
+check_collision:
+  ; go through each dvd, check for >x, >y, <x_right and <y_bottom
+  LDY #$00 ; current_dvd
+check_active_dvds:
+  LDA dvd_flags,y
+  AND #DVD_FLAG_ACTIVE
+  BEQ after_check
+  STY current_dvd
+  JSR check_food_dvd_collision
+after_check:
+  INY
+  TYA
+  CMP #NUM_DVDS
+  BNE check_active_dvds
 done:
+  PULL_REG
+  RTS
+.endproc
+
+.proc check_food_dvd_collision
+  current_food := locals+0
+  current_dvd  := locals+1
+  PUSH_REG
+  LDX current_food
+  LDA food_x,x
+  LDX current_dvd
+  CMP dvd_x,x
+  BMI done
+  CMP dvd_x_right,x
+  BPL done
+check_y:
+  LDX current_food
+  LDA food_y,x
+  LDX current_dvd
+  CMP dvd_y,x
+  BMI done
+  CMP dvd_y_bottom,x
+  BPL done
+  JSR on_collision_dvd
+done:
+  PULL_REG
+  RTS
+.endproc
+
+.proc on_collision_dvd
+  current_food := locals+0
+  current_dvd  := locals+1
+  PUSH_REG
+  LDX current_dvd
+  INC dvd_health,x
+  ; set food inactive 
+  ; TODO: remember to check later whether it was set inactive
+  ; so it can't collide with multiple dvds at once
+  JSR destroy_food
   PULL_REG
   RTS
 .endproc
@@ -117,7 +183,7 @@ find_address:
   DEX
   BNE find_address
 
-  oam_address_found:
+oam_address_found:
   LDX current_food
   TAY ; use Y to hold OAM address offset
 
@@ -128,11 +194,24 @@ find_address:
   LDA #$0B
   STA $0200, Y
   INY
-  LDA #$00
+  LDA #$01
   STA $0200, Y
   INY
   LDA food_x, X
   STA $0200, Y
+  PULL_REG
+  RTS
+.endproc
+
+.proc destroy_food
+  current_food := locals+0
+  PUSH_REG
+  LDX current_food
+  LDA food_flags,x
+  EOR #FOOD_FLAG_ACTIVE
+  STA food_flags,x
+  LDA #Y_OUT_OF_BOUNDS
+  STA food_y,x
   PULL_REG
   RTS
 .endproc
