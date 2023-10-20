@@ -32,12 +32,13 @@
   dvd_x_right: .res NUM_DVDS
   dvd_y_bottom: .res NUM_DVDS
   dvd_flags: .res NUM_DVDS
+  dvd_bounces: .res NUM_DVDS
   
 .exportzp locals
 .exportzp pad1_pressed, pad1_held, pad1_released
 .exportzp player_x, score
 .exportzp food_x, food_y, food_flags
-.exportzp dvd_health, dvd_x, dvd_y, dvd_flags, dvd_x_right, dvd_y_bottom
+.exportzp dvd_health, dvd_x, dvd_y, dvd_flags, dvd_x_right, dvd_y_bottom, dvd_bounces
 
 .segment "CODE"
 

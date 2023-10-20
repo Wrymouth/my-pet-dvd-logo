@@ -4,9 +4,8 @@
 
 .importzp locals
 .importzp score
-.importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
+.importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags, dvd_bounces
 
-INITIAL_DVD_SPAWN = 2
 
 .export init_dvds
 .proc init_dvds
@@ -186,8 +185,22 @@ at_top_edge:
   CMP #$02
   BNE done_moving
   INC score
-  ; after movement, set the bottom and right positions
 done_moving:
+  LDA bounces
+  BEQ set_width_height
+  INC dvd_bounces,x
+  ; check if HP should be lost
+  LDA dvd_bounces,x
+  CMP #DVD_MAX_BOUNCES
+  BNE set_width_height
+  DEC dvd_health,x
+  BNE reset_bounces
+  JSR destroy_dvd
+reset_bounces:
+  LDA #$00
+  STA dvd_bounces,x
+  ; after movement, set the bottom and right positions
+set_width_height:
   LDA dvd_x,x
   CLC
   ADC #DVD_WIDTH
@@ -365,13 +378,13 @@ oam_address_found:
 
 .segment "RODATA"
 init_dvd_health:
-.byte $02, $02
+.byte $02, $02, $02
 
 init_dvd_x:
-.byte $d0, $40
+.byte $d0, $40, $10
 
 init_dvd_y:
-.byte $60, $38
+.byte $60, $38, $20
 
 init_dvd_flags:
-.byte %11010000, %11100000
+.byte %11010000, %11100000, %11100000
