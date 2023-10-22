@@ -29,6 +29,7 @@ activate_dvds:
   current_dvd := locals+0
 
   PUSH_REG
+  JSR setup_dvds_collision_check
   LDX #$00 ; current_dvd
 update_active_dvds:
   LDA dvd_flags,x
@@ -42,6 +43,128 @@ after_update:
   CMP #NUM_DVDS
   BNE update_active_dvds
 
+  PULL_REG
+  RTS
+.endproc
+
+.proc setup_dvds_collision_check
+  dvd_a := locals+0 ; initialized here 
+  dvd_b := locals+1 ; initialized here
+  collision_occurred := locals+2 ; returned from subroutine
+
+  PUSH_REG
+  ; check if there at least 2 DVDs with 4HP
+  ; then check if any of them are colliding with each other
+  LDX #$00 ; current dvd_a
+  LDY #$00 ; current dvd_b
+  STY collision_occurred ; set collision_occurred to FALSE for now
+check_dvd_x:
+  LDA dvd_flags,x
+  AND #DVD_FLAG_ACTIVE ; check if set
+  BEQ not_colliding_x
+  ; AND #DVD_FLAG_DO_NOT_CHECK_COLLISION ; check if not set
+  ; BNE not_colliding_x
+  LDA dvd_health,x
+  CMP #DVD_MAX_HEALTH
+  BNE not_colliding_x
+  JMP start_dvd_y
+not_colliding_x:
+  ; LDA dvd_flags,x
+  ; ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
+  ; STA dvd_flags,x
+after_check_x:
+  INX
+  TXA
+  CMP #NUM_DVDS
+  BNE check_dvd_x
+  JMP done
+start_dvd_y:
+  TXA
+  TAY ; we know the dvds before this won't collide, so start counting at the current dvd
+  INY ; can't collide with yourself, and we know everything before is ineligible
+check_dvd_y:
+  LDA dvd_flags,y
+  AND #DVD_FLAG_ACTIVE ; check if set
+  BEQ not_colliding_y
+  ; AND #DVD_FLAG_DO_NOT_CHECK_COLLISION ; check if not set
+  ; BNE not_colliding_y
+  LDA dvd_health,y
+  CMP #DVD_MAX_HEALTH
+  BNE not_colliding_y
+  STX dvd_a
+  STY dvd_b
+  JSR check_dvds_collision ; returns a value to collision_occurred
+  LDA collision_occurred
+  BEQ after_check_y
+  JMP done 
+not_colliding_y:
+  ; LDA dvd_flags,y
+  ; ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
+  ; STA dvd_flags,y
+  ; LDA dvd_flags,y
+  ; ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
+  ; STA dvd_flags,y
+after_check_y:
+  INY
+  TYA
+  CMP #NUM_DVDS
+  BNE check_dvd_y
+  INX
+  JMP check_dvd_x
+done:
+  ; clear "collided" flags
+
+  PULL_REG
+  RTS
+.endproc
+
+.proc check_dvds_collision
+  dvd_a := locals+0 ; arg
+  dvd_b := locals+1 ; arg
+  collision_occurred := locals+2 ; ret
+  PUSH_REG
+  LDX dvd_a
+  LDY dvd_b
+  
+  LDA dvd_x,x
+  CMP dvd_x,y
+  BMI no_collision
+  CMP dvd_x_right,y
+  BPL no_collision
+
+  LDA dvd_y,x
+  CMP dvd_y,y
+  BMI no_collision
+  CMP dvd_y_bottom,y
+  BPL no_collision
+  JSR on_collision_dvds
+  LDA #TRUE
+  STA collision_occurred
+  JMP done
+no_collision:
+  LDA #FALSE
+  STA collision_occurred
+done:
+  PULL_REG
+  RTS
+.endproc
+
+.proc on_collision_dvds
+  dvd_a := locals+0 ; arg
+  dvd_b := locals+1 ; arg
+
+  PUSH_REG
+  JSR create_dvd_from_parent
+  LDX dvd_a
+  LDY dvd_b
+  LDA dvd_flags,x
+  EOR #DVD_FLAG_MOVING_RIGHT|DVD_FLAG_MOVING_UP
+  ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
+  STA dvd_flags,x
+  LDA dvd_flags,y
+  EOR #DVD_FLAG_MOVING_RIGHT|DVD_FLAG_MOVING_UP
+  ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
+  STA dvd_flags,y
   PULL_REG
   RTS
 .endproc
@@ -97,6 +220,45 @@ after_draw:
   LDA init_dvd_y,x
   STA dvd_y,x
 
+  PULL_REG
+  RTS
+.endproc
+
+.proc create_dvd_from_parent
+  dvd_a := locals+0
+  
+  PUSH_REG
+  ; scan for inactive dvd slots
+  LDX #$00
+  LDY dvd_a
+find_inactive:
+  LDA dvd_flags,x
+  AND #DVD_FLAG_ACTIVE
+  BNE after_search
+
+  ; create the dvd
+  LDA #$02
+  STA dvd_health,x
+  LDA dvd_x,y
+  STA dvd_x,x
+  LDA dvd_y,y
+  STA dvd_y,x
+  LDA dvd_x_right,x
+  STA dvd_x_right,y
+  LDA dvd_y_bottom,x
+  STA dvd_y_bottom,y
+  LDA dvd_flags,y
+  STA dvd_flags,x
+  LDA #$00
+  STA dvd_bounces,x
+  JMP done
+
+after_search:
+  INX
+  TXA
+  CMP #NUM_DVDS
+  BNE find_inactive
+done:
   PULL_REG
   RTS
 .endproc
@@ -180,12 +342,12 @@ at_top_edge:
   LDA dvd_flags,x
   EOR #DVD_FLAG_MOVING_UP
   STA dvd_flags,x    ; start moving down
-  
+done_moving:
   LDA bounces
   CMP #$02
-  BNE done_moving
+  BNE increase_bounce_counter
   INC score
-done_moving:
+increase_bounce_counter:
   LDA bounces
   BEQ set_width_height
   INC dvd_bounces,x

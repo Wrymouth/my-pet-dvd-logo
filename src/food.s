@@ -139,7 +139,6 @@ done:
   BMI done
   CMP dvd_x_right,x
   BPL done
-check_y:
   LDX current_food
   LDA food_y,x
   LDX current_dvd
