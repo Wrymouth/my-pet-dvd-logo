@@ -10,35 +10,55 @@
   pad1_pressed: .res 1
   pad1_held: .res 1
   pad1_released: .res 1
+  pad1_first_pressed: .res 1
 
   sleeping: .res 1
+  timer: .res 1 ; ticks up every frame
+  game_status: .res 1
   ; ppu data
   scroll: .res 1
   ppuctrl_settings: .res 1
 
   ; player data
   player_x: .res 1
-  score: .res 1
+  score_h: .res 1
+  score_l: .res 1
+  food_amount_h: .res 1
+  food_amount_l: .res 1
 
   ; food data
-  food_x: .res NUM_FOODS
-  food_y: .res NUM_FOODS
-  food_flags: .res NUM_FOODS
+  food_x: .res MAX_FOODS
+  food_y: .res MAX_FOODS
+  food_flags: .res MAX_FOODS
+
+  ; bullet data
+  bullet_x: .res 1
+  bullet_y: .res 1
+  bullet_flags: .res 1
 
   ; dvd data
-  dvd_health: .res NUM_DVDS
-  dvd_x: .res NUM_DVDS
-  dvd_y: .res NUM_DVDS
-  dvd_x_right: .res NUM_DVDS
-  dvd_y_bottom: .res NUM_DVDS
-  dvd_flags: .res NUM_DVDS
-  dvd_bounces: .res NUM_DVDS
+  num_active_dvds: .res 1
+  dvd_health: .res MAX_DVDS
+  dvd_x: .res MAX_DVDS
+  dvd_y: .res MAX_DVDS
+  dvd_x_right: .res MAX_DVDS
+  dvd_y_bottom: .res MAX_DVDS
+  dvd_flags: .res MAX_DVDS
+  dvd_bounces: .res MAX_DVDS
+
+  ; enemy data
+  enemy_x: .res 1
+  enemy_y: .res 1
+  enemy_x_right: .res 1
+  enemy_y_bottom: .res 1
+  enemy_flags: .res 1
   
 .exportzp locals
-.exportzp pad1_pressed, pad1_held, pad1_released
-.exportzp player_x, score
+.exportzp timer
+.exportzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed
+.exportzp player_x, score_l, score_h, food_amount_h, food_amount_l
 .exportzp food_x, food_y, food_flags
-.exportzp dvd_health, dvd_x, dvd_y, dvd_flags, dvd_x_right, dvd_y_bottom, dvd_bounces
+.exportzp num_active_dvds, dvd_health, dvd_x, dvd_y, dvd_flags, dvd_x_right, dvd_y_bottom, dvd_bounces
 
 .segment "CODE"
 
@@ -88,6 +108,8 @@
 .import update_player, draw_player
 .import handle_input_food, update_foods, draw_foods
 .import init_dvds, update_dvds, draw_dvds
+.import draw_background
+.import draw_score
 
 .export main
 .proc main
@@ -110,143 +132,7 @@ load_palettes:
   CPX #$20
   BNE load_palettes
 
-  ; write sprite data
-  LDX #$00
-load_sprites:
-  LDA sprites,X
-  STA $0200,X
-  INX
-  CPX #$24
-  BNE load_sprites
-  
-	; write nametables
-	; big stars first
-	LDA PPUSTATUS
-	LDA #$20
-	STA PPUADDR
-	LDA #$6b
-	STA PPUADDR
-	LDX #$2f
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$21
-	STA PPUADDR
-	LDA #$57
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$22
-	STA PPUADDR
-	LDA #$23
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$23
-	STA PPUADDR
-	LDA #$52
-	STA PPUADDR
-	STX PPUDATA
-
-	; next, small star 1
-	LDA PPUSTATUS
-	LDA #$20
-	STA PPUADDR
-	LDA #$74
-	STA PPUADDR
-	LDX #$2d
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$21
-	STA PPUADDR
-	LDA #$43
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$21
-	STA PPUADDR
-	LDA #$5d
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$21
-	STA PPUADDR
-	LDA #$73
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$22
-	STA PPUADDR
-	LDA #$2f
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$22
-	STA PPUADDR
-	LDA #$f7
-	STA PPUADDR
-	STX PPUDATA
-
-	; finally, small star 2
-	LDA PPUSTATUS
-	LDA #$20
-	STA PPUADDR
-	LDA #$f1
-	STA PPUADDR
-	LDX #$2e
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$21
-	STA PPUADDR
-	LDA #$a8
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$22
-	STA PPUADDR
-	LDA #$7a
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$23
-	STA PPUADDR
-	LDA #$44
-	STA PPUADDR
-	STX PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$23
-	STA PPUADDR
-	LDA #$7c
-	STA PPUADDR
-	STX PPUDATA
-
-	; finally, attribute table
-	LDA PPUSTATUS
-	LDA #$23
-	STA PPUADDR
-	LDA #$c2
-	STA PPUADDR
-	LDA #%01000000
-	STA PPUDATA
-
-	LDA PPUSTATUS
-	LDA #$23
-	STA PPUADDR
-	LDA #$e0
-	STA PPUADDR
-	LDA #%00001100
-	STA PPUDATA
+  JSR draw_background
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -265,31 +151,45 @@ main_loop:
   JSR read_controller1
   JSR handle_released_and_held
 
+  LDA pad1_first_pressed
+  AND #BTN_START
+  BEQ pause_not_pressed
+  LDA game_status
+  EOR #GAME_STATUS_PAUSED
+  STA game_status
+
+pause_not_pressed:
+  LDA game_status
+  AND #GAME_STATUS_PAUSED
+  BNE draw_stuff
   JSR handle_input_food
   JSR update_player
   JSR update_dvds
   JSR update_foods
 
   
-  ; Check if PPUCTRL needs to change
-  LDA scroll ; did we reach the end of a nametable?
-  BNE update_scroll
-  ; if yes,
-  ; Update base nametable
-  LDA ppuctrl_settings
-  EOR #%00000010 ; flip bit 1 to its opposite
-  STA ppuctrl_settings
-  ; Reset scroll to 240
-  LDA #240
-  STA scroll
+;   ; Check if PPUCTRL needs to change
+;   LDA scroll ; did we reach the end of a nametable?
+;   BNE update_scroll
+;   ; if yes,
+;   ; Update base nametable
+;   LDA ppuctrl_settings
+;   EOR #%00000010 ; flip bit 1 to its opposite
+;   STA ppuctrl_settings
+;   ; Reset scroll to 240
+;   LDA #240
+;   STA scroll
 
-update_scroll:
-  DEC scroll
+; update_scroll:
+;   DEC scroll
 
-  ; draw stuff
+draw_stuff:
   JSR draw_player
   JSR draw_dvds
   JSR draw_foods
+  JSR draw_score
+
+  INC timer
 
   ; Done processing; wait for next Vblank
   INC sleeping

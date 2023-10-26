@@ -3,9 +3,9 @@
 .include "include/macros.inc"
 
 .importzp locals
-.importzp score
-.importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags, dvd_bounces
+.importzp num_active_dvds, dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags, dvd_bounces
 
+.import inc_score
 
 .export init_dvds
 .proc init_dvds
@@ -40,7 +40,7 @@ update_active_dvds:
 after_update:
   INX
   TXA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE update_active_dvds
 
   PULL_REG
@@ -59,6 +59,9 @@ after_update:
   LDY #$00 ; current dvd_b
   STY collision_occurred ; set collision_occurred to FALSE for now
 check_dvd_x:
+  LDA num_active_dvds
+  CMP #MAX_DVDS
+  BEQ done
   LDA dvd_flags,x
   AND #DVD_FLAG_ACTIVE ; check if set
   BEQ not_colliding_x
@@ -75,7 +78,7 @@ not_colliding_x:
 after_check_x:
   INX
   TXA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE check_dvd_x
   JMP done
 start_dvd_y:
@@ -107,7 +110,7 @@ not_colliding_y:
 after_check_y:
   INY
   TYA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE check_dvd_y
   INX
   JMP check_dvd_x
@@ -194,7 +197,7 @@ after_erase:
 after_draw:
   INX
   TXA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE draw_active_dvds
   PULL_REG
   RTS
@@ -220,13 +223,16 @@ after_draw:
   LDA init_dvd_y,x
   STA dvd_y,x
 
+  INC num_active_dvds
+
   PULL_REG
   RTS
 .endproc
 
 .proc create_dvd_from_parent
-  dvd_a := locals+0
-  
+  dvd_a := locals+0 ; arg
+  dvd_b := locals+1 ; arg
+
   PUSH_REG
   ; scan for inactive dvd slots
   LDX #$00
@@ -247,16 +253,35 @@ find_inactive:
   STA dvd_x_right,y
   LDA dvd_y_bottom,x
   STA dvd_y_bottom,y
+  
+  ; set up flags, such that the new dvd moves
+  ; in a different direction than both of its parents
   LDA dvd_flags,y
+  AND #DVD_FLAG_MOVING_RIGHT
+  EOR #DVD_FLAG_MOVING_RIGHT
   STA dvd_flags,x
+  
+  LDY dvd_b
+  LDA dvd_flags,y
+  AND #DVD_FLAG_MOVING_UP
+  EOR #DVD_FLAG_MOVING_UP
+  ORA dvd_flags,x
+  ORA #DVD_FLAG_ACTIVE|DVD_FLAG_VISIBLE
+  STA dvd_flags,x
+  LDY dvd_a
+  LDA dvd_flags,y
+  EOR #DVD_FLAG_MOVING_UP
+  STA dvd_flags,x
+  
   LDA #$00
   STA dvd_bounces,x
+  INC num_active_dvds
   JMP done
 
 after_search:
   INX
   TXA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE find_inactive
 done:
   PULL_REG
@@ -346,7 +371,7 @@ done_moving:
   LDA bounces
   CMP #$02
   BNE increase_bounce_counter
-  INC score
+  JSR inc_score
 increase_bounce_counter:
   LDA bounces
   BEQ set_width_height
@@ -386,7 +411,7 @@ done:
   ; by starting at $0210 (after the player
   ; sprites) and adding $10 for each enemy
   ; until we hit the current index.
-  LDA #$04
+  LDA #OAM_OFFSET_DVD
   LDX current_dvd
   BEQ oam_address_found
 find_address:
@@ -534,6 +559,7 @@ oam_address_found:
   STA dvd_flags,x
   LDA #Y_OUT_OF_BOUNDS
   STA dvd_y,x
+  DEC num_active_dvds
   PULL_REG
   RTS
 .endproc
@@ -546,7 +572,7 @@ init_dvd_x:
 .byte $d0, $40, $10
 
 init_dvd_y:
-.byte $60, $38, $20
+.byte $60, $38, $80
 
 init_dvd_flags:
-.byte %11010000, %11100000, %11100000
+.byte %11010000, %11110000, %11100000

@@ -3,7 +3,8 @@
 .include "include/macros.inc"
 
 .importzp locals
-.importzp pad1_held, pad1_pressed, pad1_released
+.importzp timer
+.importzp pad1_first_pressed
 .importzp food_flags, food_x, food_y
 .importzp dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_health, dvd_flags
 .importzp player_x
@@ -11,8 +12,7 @@
 .export handle_input_food
 .proc handle_input_food
   PUSH_REG
-  LDA pad1_pressed
-  EOR pad1_held
+  LDA pad1_first_pressed
   AND #BTN_A
   BEQ do_not_create
   JSR create_food
@@ -35,7 +35,7 @@ update_active_foods:
 after_update:
   INX
   TXA
-  CMP #NUM_FOODS
+  CMP #MAX_FOODS
   BNE update_active_foods
   PULL_REG
   RTS
@@ -67,7 +67,7 @@ after_erase:
 after_draw:
   INX
   TXA
-  CMP #NUM_FOODS
+  CMP #MAX_FOODS
   BNE draw_active_foods
   PULL_REG
   RTS
@@ -80,7 +80,7 @@ after_draw:
 check_food_empty:
   INX
   TXA
-  CMP #NUM_FOODS
+  CMP #MAX_FOODS
   BEQ done
   LDA food_flags,x
   AND #FOOD_FLAG_ACTIVE
@@ -89,8 +89,10 @@ check_food_empty:
   LDA #FOOD_FLAG_ACTIVE|FOOD_FLAG_VISIBLE
   STA food_flags,x
   LDA player_x
+  CLC
+  ADC #$02
   STA food_x,x
-  LDA #PLAYER_Y+10
+  LDA #PLAYER_Y+12
   STA food_y,x
 done:
   PULL_REG
@@ -103,6 +105,19 @@ done:
   PUSH_REG
   LDX current_food
   INC food_y,x
+
+  LDA food_y,x
+  CMP #Y_OUT_OF_BOUNDS
+  BNE check_timer
+  ; deactivate food because it's below the map
+  JSR destroy_food
+  JMP done
+check_timer:
+  LDA timer
+  AND #$0F
+  BNE check_collision
+  INC food_y,x
+  ; check this again because it might've fallen below the map from that
   LDA food_y,x
   CMP #Y_OUT_OF_BOUNDS
   BNE check_collision
@@ -121,7 +136,7 @@ check_active_dvds:
 after_check:
   INY
   TYA
-  CMP #NUM_DVDS
+  CMP #MAX_DVDS
   BNE check_active_dvds
 done:
   PULL_REG
@@ -134,6 +149,7 @@ done:
   PUSH_REG
   LDX current_food
   LDA food_x,x
+  INX
   LDX current_dvd
   CMP dvd_x,x
   BMI done
@@ -141,6 +157,8 @@ done:
   BPL done
   LDX current_food
   LDA food_y,x
+  CLC
+  ADC #$03
   LDX current_dvd
   CMP dvd_y,x
   BMI done
@@ -173,7 +191,7 @@ done:
   ; by starting at $0210 (after the player
   ; sprites) and adding $10 for each enemy
   ; until we hit the current index.
-  LDA #$7C
+  LDA #OAM_OFFSET_FOOD
   LDX current_food
   BEQ oam_address_found
 find_address:

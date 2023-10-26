@@ -8,6 +8,9 @@ PPUADDR   = $2006
 PPUDATA   = $2007
 OAMDMA    = $4014
 
+; APU
+APUFLAGS  = $4015
+
 ; controller addresses
 CONT1     = $4016
 CONT2     = $4017

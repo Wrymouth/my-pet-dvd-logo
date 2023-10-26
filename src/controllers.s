@@ -2,7 +2,7 @@
 .include "include/macros.inc"
 
 .segment "ZEROPAGE"
-.importzp pad1_pressed, pad1_held, pad1_released
+.importzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed
 
 .segment "CODE"
 .export read_controller1
@@ -46,6 +46,9 @@ get_buttons:
   LDA pad1_held
   AND pad1_pressed
   STA pad1_held
+  LDA pad1_pressed
+  EOR pad1_held
+  STA pad1_first_pressed
   PULL_REG
   RTS
 .endproc

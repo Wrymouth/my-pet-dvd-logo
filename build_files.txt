@@ -1,6 +1,8 @@
 main.s
+background.s
 food.s
 dvd_entity.s
 reset.s
 controllers.s
 player.s
+hud.s
