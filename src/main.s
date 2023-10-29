@@ -1,6 +1,7 @@
 .include "include/header.inc"
 .include "include/hardware_constants.inc"
 .include "include/game_constants.inc"
+.include "include/macros.inc"
 
 .segment "ZEROPAGE"
   ; local variables
@@ -13,7 +14,11 @@
   pad1_first_pressed: .res 1
 
   sleeping: .res 1
-  timer: .res 1 ; ticks up every frame
+  rand_seed_h: .res 1
+  rand_seed_l: .res 1
+  timer_h: .res 1
+  timer_l: .res 1 ; ticks up every frame
+  random: .res 1
   game_status: .res 1
   ; ppu data
   scroll: .res 1
@@ -52,12 +57,16 @@
   enemy_x_right: .res 1
   enemy_y_bottom: .res 1
   enemy_flags: .res 1
+  enemy_respawn_timer: .res 1
   
 .exportzp locals
-.exportzp timer
+.exportzp timer_h, timer_l
+.exportzp rand_seed_h, rand_seed_l, random
 .exportzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed
 .exportzp player_x, score_l, score_h, food_amount_h, food_amount_l
 .exportzp food_x, food_y, food_flags
+.exportzp enemy_x, enemy_y, enemy_x_right, enemy_y_bottom, enemy_flags
+.exportzp bullet_x, bullet_y, bullet_flags
 .exportzp num_active_dvds, dvd_health, dvd_x, dvd_y, dvd_flags, dvd_x_right, dvd_y_bottom, dvd_bounces
 
 .segment "CODE"
@@ -108,8 +117,42 @@
 .import update_player, draw_player
 .import handle_input_food, update_foods, draw_foods
 .import init_dvds, update_dvds, draw_dvds
+.import create_enemy, update_enemy, draw_enemy
+.import handle_input_bullet, update_bullet, draw_bullet
 .import draw_background
-.import draw_score
+.import draw_score, draw_food_inv
+
+.export get_rand_byte
+.proc get_rand_byte
+  PUSH_REG
+  lda rand_seed_l
+	tay ; store copy of high byte
+	; compute seed+1 ($39>>1 = %11100)
+	lsr ; shift to consume zeroes on left...
+	lsr
+	lsr
+	sta rand_seed_l ; now recreate the remaining bits in reverse order... %111
+	lsr
+	eor rand_seed_l
+	lsr
+	eor rand_seed_l
+	eor rand_seed_h ; recombine with original low byte
+	sta rand_seed_l
+	; compute seed+0 ($39 = %111001)
+	tya ; original high byte
+	sta rand_seed_h
+	asl
+	eor rand_seed_h
+	asl
+	eor rand_seed_h
+	asl
+	asl
+	asl
+	eor rand_seed_h
+	sta random
+  PULL_REG
+  RTS
+.endproc
 
 .export main
 .proc main
@@ -133,6 +176,7 @@ load_palettes:
   BNE load_palettes
 
   JSR draw_background
+  JSR create_enemy
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
@@ -144,6 +188,11 @@ vblankwait:       ; wait for another vblank before continuing
   STA PPUMASK
   
 main_loop:
+  LDA timer_l
+  STA rand_seed_l
+  LDA timer_h
+  STA rand_seed_h
+  JSR get_rand_byte
   ; handle input 
   LDA pad1_pressed
   STA pad1_released
@@ -163,34 +212,26 @@ pause_not_pressed:
   AND #GAME_STATUS_PAUSED
   BNE draw_stuff
   JSR handle_input_food
+  JSR handle_input_bullet
   JSR update_player
   JSR update_dvds
   JSR update_foods
-
+  JSR update_bullet
+  JSR update_enemy
   
-;   ; Check if PPUCTRL needs to change
-;   LDA scroll ; did we reach the end of a nametable?
-;   BNE update_scroll
-;   ; if yes,
-;   ; Update base nametable
-;   LDA ppuctrl_settings
-;   EOR #%00000010 ; flip bit 1 to its opposite
-;   STA ppuctrl_settings
-;   ; Reset scroll to 240
-;   LDA #240
-;   STA scroll
-
-; update_scroll:
-;   DEC scroll
-
 draw_stuff:
   JSR draw_player
   JSR draw_dvds
   JSR draw_foods
+  JSR draw_bullet
+  JSR draw_enemy
   JSR draw_score
+  JSR draw_food_inv
 
-  INC timer
-
+  INC timer_l
+  BNE set_sleeping
+  INC timer_h
+set_sleeping:
   ; Done processing; wait for next Vblank
   INC sleeping
 sleep:

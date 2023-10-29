@@ -19,11 +19,13 @@ move_right:
   CMP #RIGHT_OF_DVD_FIELD + 16
   BEQ done
   INC player_x
+  INC player_x
   JMP done
 move_left:
   LDA player_x
   CMP #LEFT_OF_DVD_FIELD
   BEQ done
+  DEC player_x
   DEC player_x
 done:
   PULL_REG

@@ -16,8 +16,7 @@ activate_dvds:
   STX current_dvd
   JSR create_dvd_init
   INX
-  TXA
-  CMP #INITIAL_DVD_SPAWN
+  CPX #INITIAL_DVD_SPAWN
   BNE activate_dvds
 
   PULL_REG
@@ -39,8 +38,7 @@ update_active_dvds:
   JSR update_dvd
 after_update:
   INX
-  TXA
-  CMP #MAX_DVDS
+  CPX #MAX_DVDS
   BNE update_active_dvds
 
   PULL_REG
@@ -77,8 +75,7 @@ not_colliding_x:
   ; STA dvd_flags,x
 after_check_x:
   INX
-  TXA
-  CMP #MAX_DVDS
+  CPX #MAX_DVDS
   BNE check_dvd_x
   JMP done
 start_dvd_y:
@@ -129,17 +126,23 @@ done:
   LDX dvd_a
   LDY dvd_b
   
+  ; compare left side of A to right side of B
   LDA dvd_x,x
-  CMP dvd_x,y
-  BMI no_collision
   CMP dvd_x_right,y
   BPL no_collision
-
-  LDA dvd_y,x
+  ; compare right side of A to left side of B
+  LDA dvd_x_right,x
+  CMP dvd_x,y
+  BMI no_collision
+  ; compare bottom of A to top of B
+  LDA dvd_y_bottom,x
   CMP dvd_y,y
   BMI no_collision
+  ; compare top of A to bottom of B
+  LDA dvd_y,x
   CMP dvd_y_bottom,y
   BPL no_collision
+
   JSR on_collision_dvds
   LDA #TRUE
   STA collision_occurred
@@ -196,8 +199,7 @@ after_erase:
   JSR draw_dvd
 after_draw:
   INX
-  TXA
-  CMP #MAX_DVDS
+  CPX #MAX_DVDS
   BNE draw_active_dvds
   PULL_REG
   RTS
@@ -280,8 +282,7 @@ find_inactive:
 
 after_search:
   INX
-  TXA
-  CMP #MAX_DVDS
+  CPX #MAX_DVDS
   BNE find_inactive
 done:
   PULL_REG
@@ -550,6 +551,7 @@ oam_address_found:
   RTS
 .endproc
 
+.export destroy_dvd
 .proc destroy_dvd
   current_dvd := locals+0
   PUSH_REG
