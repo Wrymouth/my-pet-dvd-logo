@@ -3,6 +3,7 @@
 .include "include/macros.inc"
 
 .importzp player_x, pad1_pressed
+.importzp oam_bytes_used, oam_current_index, oam_offset_add
 
 .export update_player
 .proc update_player
@@ -36,18 +37,24 @@ done:
 .proc draw_player
   PUSH_REG
   ; write player tile to start of $0200
-  ; tile num
-  LDA #$0A
-  STA $0201
-  ; attr
-  LDA #$03
-  STA $0202
+  LDX oam_current_index
   ; y
   LDA #PLAYER_Y
-  STA $0200
+  STA $0200,x
+  ; tile num
+  LDA #$0A
+  STA $0201,x
+  ; attr
+  LDA #$03
+  STA $0202,x
   ; x
   LDA player_x
-  STA $0203
+  STA $0203,x
+  
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
 done:
   PULL_REG
   RTS

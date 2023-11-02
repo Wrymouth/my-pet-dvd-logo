@@ -2,6 +2,7 @@
 .include "include/game_constants.inc"
 .include "include/macros.inc"
 
+.importzp oam_current_index, oam_offset_add
 .importzp score_l, score_h, food_amount_h, food_amount_l
 
 .export inc_score
@@ -68,23 +69,37 @@ done:
 .export draw_score
 .proc draw_score
   PUSH_REG
+  LDX oam_current_index
+  LDA #$00
+  STA $0200,x
   LDA score_h
   ORA #HUD_MASK_CHR
-  STA OAM_SCORE+1
+  STA $0201,x
   LDA #$03
-  STA OAM_SCORE+2
+  STA $0202,x
   LDA #$00
-  STA OAM_SCORE
-  STA OAM_SCORE+3
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
+
+  LDA #$00
+  STA $0200,x
   LDA score_l
   ORA #HUD_MASK_CHR
-  STA OAM_SCORE+5
+  STA $0201,x
   LDA #$03
-  STA OAM_SCORE+6
-  LDA #$00
-  STA OAM_SCORE+4
+  STA $0202,x
   LDA #$08
-  STA OAM_SCORE+7
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
   PULL_REG
   RTS
 .endproc
@@ -92,24 +107,37 @@ done:
 .export draw_food_inv
 .proc draw_food_inv
   PUSH_REG
+  LDX oam_current_index
+  LDA #$00
+  STA $0200,x
   LDA food_amount_h
   ORA #HUD_MASK_CHR
-  STA OAM_FOOD_INV+1
+  STA $0201,x
   LDA #$03
-  STA OAM_FOOD_INV+2
-  LDA #$00
-  STA OAM_FOOD_INV
+  STA $0202,x
   LDA #$F0
-  STA OAM_FOOD_INV+3
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
+
+  LDA #$00
+  STA $0200,x
   LDA food_amount_l
   ORA #HUD_MASK_CHR
-  STA OAM_FOOD_INV+5
+  STA $0201,x
   LDA #$03
-  STA OAM_FOOD_INV+6
-  LDA #$00
-  STA OAM_FOOD_INV+4
+  STA $0202,x
   LDA #$F8
-  STA OAM_FOOD_INV+7
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
   PULL_REG
   RTS
 .endproc

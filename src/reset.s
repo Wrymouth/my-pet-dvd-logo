@@ -34,10 +34,5 @@
   vblankwait:
     BIT PPUSTATUS
     BPL vblankwait
-    ; initialize zero-page values
-    LDA #$90
-    STA player_x
-    LDA #FOOD_AMOUNT_START
-    STA food_amount_l
     JMP main
   .endproc

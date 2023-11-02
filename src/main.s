@@ -13,6 +13,9 @@
   pad1_released: .res 1
   pad1_first_pressed: .res 1
 
+  oam_bytes_used: .res 1
+  oam_current_index: .res 1
+  oam_offset_add: .res 1
   sleeping: .res 1
   rand_seed_h: .res 1
   rand_seed_l: .res 1
@@ -63,6 +66,7 @@
 .exportzp timer_h, timer_l
 .exportzp rand_seed_h, rand_seed_l, random
 .exportzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed
+.exportzp oam_bytes_used, oam_current_index, oam_offset_add
 .exportzp player_x, score_l, score_h, food_amount_h, food_amount_l
 .exportzp food_x, food_y, food_flags
 .exportzp enemy_x, enemy_y, enemy_x_right, enemy_y_bottom, enemy_flags
@@ -154,9 +158,32 @@
   RTS
 .endproc
 
+.proc clear_oam
+  PUSH_REG
+  LDX #$00
+loop:
+  LDA #$FF
+  STA $0200,x
+  TXA
+  CLC
+  ADC #$04
+  TAX
+  CPX #$00
+  BNE loop
+
+  PULL_REG
+  RTS
+.endproc
+
 .export main
 .proc main
-  
+  ; initialize zero-page values
+  LDA #$90
+  STA player_x
+  LDA #FOOD_AMOUNT_START
+  STA food_amount_l
+  LDA #$04
+  STA oam_offset_add
   LDA #239   ; Y is only 240 lines tall!
   STA scroll
   ; set up dvds
@@ -188,6 +215,19 @@ vblankwait:       ; wait for another vblank before continuing
   STA PPUMASK
   
 main_loop:
+  JSR clear_oam
+  LDA #$00
+  STA oam_current_index
+  LDA oam_offset_add
+  CMP #OAM_OFFSET_FORWARD
+  BEQ set_oam_offset_backward
+  LDA #OAM_OFFSET_FORWARD
+  STA oam_offset_add
+  JMP set_seed
+set_oam_offset_backward:
+  LDA #OAM_OFFSET_BACKWARD
+  STA oam_offset_add
+set_seed:
   LDA timer_l
   STA rand_seed_l
   LDA timer_h
@@ -220,13 +260,15 @@ pause_not_pressed:
   JSR update_enemy
   
 draw_stuff:
-  JSR draw_player
-  JSR draw_dvds
-  JSR draw_foods
-  JSR draw_bullet
-  JSR draw_enemy
+  JSR clear_oam
   JSR draw_score
   JSR draw_food_inv
+  JSR draw_player
+  JSR draw_foods
+  JSR draw_bullet
+
+  JSR draw_dvds
+  JSR draw_enemy
 
   INC timer_l
   BNE set_sleeping

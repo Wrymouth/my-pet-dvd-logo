@@ -5,6 +5,7 @@
 .importzp locals
 .importzp timer_l, pad1_first_pressed
 .importzp rand_seed_l, random
+.importzp oam_current_index, oam_offset_add
 .importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
 .importzp food_amount_h, food_amount_l
 .importzp enemy_x, enemy_x_right, enemy_y, enemy_y_bottom, enemy_flags
@@ -127,81 +128,115 @@ done:
 .export draw_enemy
 .proc draw_enemy
   PUSH_REG
+  LDX oam_current_index
 
   ; dvd top-left
   LDA enemy_y
-  STA $0200+OAM_OFFSET_ENEMY
+  STA $0200,x
   LDA #$0D
-  STA $0200+OAM_OFFSET_ENEMY+1
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+2
+  STA $0202,x
   LDA enemy_x
-  STA $0200+OAM_OFFSET_ENEMY+3
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
 
   ; dvd top-middle
   LDA enemy_y
-  STA $0200+OAM_OFFSET_ENEMY+4
+  STA $0200,x
   LDA #$0E
-  STA $0200+OAM_OFFSET_ENEMY+5
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+6
+  STA $0202,x
   LDA enemy_x
   CLC
   ADC #$08
-  STA $0200+OAM_OFFSET_ENEMY+7
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
 
   ; dvd top-right
   LDA enemy_y
-  STA $0200+OAM_OFFSET_ENEMY+8
+  STA $0200,x
   LDA #$0F
-  STA $0200+OAM_OFFSET_ENEMY+9
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+10
+  STA $0202,x
   LDA enemy_x
   CLC
   ADC #$10
-  STA $0200+OAM_OFFSET_ENEMY+11
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
 
   ; dvd bottom-left
   LDA enemy_y
   CLC
   ADC #$08
-  STA $0200+OAM_OFFSET_ENEMY+12
+  STA $0200,x
   LDA #$1D
-  STA $0200+OAM_OFFSET_ENEMY+13
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+14
+  STA $0202,x
   LDA enemy_x
-  STA $0200+OAM_OFFSET_ENEMY+15
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
 
   ; dvd bottom-middle
   LDA enemy_y
   CLC
   ADC #$08
-  STA $0200+OAM_OFFSET_ENEMY+16
+  STA $0200,x
   LDA #$1E
-  STA $0200+OAM_OFFSET_ENEMY+17
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+18
+  STA $0202,x
   LDA enemy_x
   CLC
   ADC #$08
-  STA $0200+OAM_OFFSET_ENEMY+19
-  
+  STA $0203,x
+
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAX
+
   ; dvd bottom-right
   LDA enemy_y
   CLC
   ADC #$08
-  STA $0200+OAM_OFFSET_ENEMY+20
+  STA $0200,x
   LDA #$1F
-  STA $0200+OAM_OFFSET_ENEMY+21
+  STA $0201,x
   LDA #$02
-  STA $0200+OAM_OFFSET_ENEMY+22
+  STA $0202,x
   LDA enemy_x
   CLC
   ADC #$10
-  STA $0200+OAM_OFFSET_ENEMY+23
-
+  STA $0203,x
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
   ; restore registers and return
   PULL_REG
   RTS
@@ -381,17 +416,21 @@ done:
 .proc draw_bullet
   PUSH_REG
   ; draw bullet
+  LDX oam_current_index
   LDA bullet_y
-  STA $0200+OAM_OFFSET_BULLET
-  INY
+  STA $0200,x
   LDA #$0C
-  STA $0200+OAM_OFFSET_BULLET+1
-  INY
+  STA $0201,x
   LDA #$00
-  STA $0200+OAM_OFFSET_BULLET+2
-  INY
+  STA $0202,x
   LDA bullet_x
-  STA $0200+OAM_OFFSET_BULLET+3
+  STA $0203,x
+  
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  
   PULL_REG
   RTS
 .endproc

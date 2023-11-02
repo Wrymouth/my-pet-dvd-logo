@@ -3,6 +3,7 @@
 .include "include/macros.inc"
 
 .importzp locals
+.importzp oam_bytes_used, oam_current_index, oam_offset_add
 .importzp num_active_dvds, dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags, dvd_bounces
 
 .import inc_score
@@ -171,6 +172,9 @@ done:
   EOR #DVD_FLAG_MOVING_RIGHT|DVD_FLAG_MOVING_UP
   ORA #DVD_FLAG_DO_NOT_CHECK_COLLISION
   STA dvd_flags,y
+  LDA #DVD_MAX_HEALTH-1
+  STA dvd_health,x
+  STA dvd_health,y
   PULL_REG
   RTS
 .endproc
@@ -408,146 +412,139 @@ done:
   current_dvd := locals+0
 
   PUSH_REG
-  ; Find the appropriate OAM address offset
-  ; by starting at $0210 (after the player
-  ; sprites) and adding $10 for each enemy
-  ; until we hit the current index.
-  LDA #OAM_OFFSET_DVD
-  LDX current_dvd
-  BEQ oam_address_found
-find_address:
-  CLC
-  ADC #$18
-  DEX
-  BNE find_address
-
 oam_address_found:
   LDX current_dvd
-  TAY ; use Y to hold OAM address offset
+  LDY oam_current_index
 
   ; dvd top-left
   LDA dvd_y, X
   STA $0200, Y
-  INY
   LDA #$05
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$00
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
-  STA $0200, Y
-  INY
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAY
 
   ; dvd top-middle
   LDA dvd_y, X
   STA $0200, Y
-  INY
   LDA #$06
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$00
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
   CLC
   ADC #$08
-  STA $0200, Y
-  INY
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAY
 
   ; dvd top-right
   LDA dvd_y, X
   STA $0200, Y
-  INY
   LDA #$07
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$00
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
   CLC
   ADC #$10
-  STA $0200, Y
-  INY
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAY
 
   ; dvd bottom-left
   LDA dvd_y, X
   CLC
   ADC #$08
   STA $0200, Y
-  INY
   LDA #$08
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$00
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
-  STA $0200, Y
-  INY
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAY
 
   ; dvd bottom-middle
   LDA dvd_y, X
   CLC
   ADC #$08
   STA $0200, Y
-  INY
   LDA #$09
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$00
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
   CLC
   ADC #$08
-  STA $0200, Y
-  INY
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  TAY
   
   ; dvd bottom-right
   LDA dvd_y, X
   CLC
   ADC #$08
   STA $0200, Y
-  INY
   LDA #$08
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #%01000000 ; flipped sprite
   ORA dvd_health, X
   SEC
   SBC #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA dvd_x, X
   CLC
   ADC #$10
-  STA $0200, Y
-  INY
+  STA $0203, Y
 
-  ; restore registers and return
-  PLA
+    TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
   TAY
-  PLA
-  TAX
-  PLA
-  PLP
+
+  PULL_REG
   RTS
 .endproc
 

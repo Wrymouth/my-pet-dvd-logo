@@ -5,6 +5,7 @@
 .importzp locals
 .importzp timer_l
 .importzp pad1_first_pressed
+.importzp oam_current_index, oam_offset_add
 .importzp food_amount_h, food_amount_l, food_flags, food_x, food_y
 .importzp dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_health, dvd_flags
 .importzp player_x
@@ -194,31 +195,24 @@ done:
   ; by starting at $0210 (after the player
   ; sprites) and adding $10 for each enemy
   ; until we hit the current index.
-  LDA #OAM_OFFSET_FOOD
-  LDX current_food
-  BEQ oam_address_found
-find_address:
-  CLC
-  ADC #FOOD_SPRITE_SIZE
-  DEX
-  BNE find_address
-
 oam_address_found:
   LDX current_food
-  TAY ; use Y to hold OAM address offset
+  LDY oam_current_index
 
   ; draw food
   LDA food_y, X
   STA $0200, Y
-  INY
   LDA #$0B
-  STA $0200, Y
-  INY
+  STA $0201, Y
   LDA #$01
-  STA $0200, Y
-  INY
+  STA $0202, Y
   LDA food_x, X
-  STA $0200, Y
+  STA $0203, Y
+
+  TYA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
   PULL_REG
   RTS
 .endproc
