@@ -6,7 +6,7 @@
 .importzp timer_l, pad1_first_pressed
 .importzp rand_seed_l, random
 .importzp oam_current_index, oam_offset_add
-.importzp dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
+.importzp num_active_dvds, dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
 .importzp food_amount_h, food_amount_l
 .importzp enemy_x, enemy_x_right, enemy_y, enemy_y_bottom, enemy_flags
 .importzp bullet_x, bullet_y, bullet_flags
@@ -52,6 +52,9 @@
   AND #ENEMY_FLAG_ACTIVE
   BNE movement
   ; create new enemy cause the old one must have died
+  LDA num_active_dvds
+  CMP #$02
+  BMI done ; branch on less than
   JSR create_enemy
   JMP done
 movement:  
@@ -447,7 +450,11 @@ done:
 .endproc
 
 .segment "RODATA"
+
+.export rand_x_pos
 rand_x_pos:
 .byte $12, $20, $50, $23, $d0, $a4, $3a, $6b, $8f, $70, $1c, $46, $66, $94, $cc, $ba
+
+.export rand_y_pos
 rand_y_pos:
 .byte $42, $60, $50, $43, $c0, $a4, $aa, $6b, $8f, $70, $80, $46, $66, $94, $cc, $ba

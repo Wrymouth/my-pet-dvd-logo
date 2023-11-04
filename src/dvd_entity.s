@@ -3,6 +3,7 @@
 .include "include/macros.inc"
 
 .importzp locals
+.importzp random, rand_seed_l
 .importzp oam_bytes_used, oam_current_index, oam_offset_add
 .importzp num_active_dvds, dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags, dvd_bounces
 
@@ -209,6 +210,8 @@ after_draw:
   RTS
 .endproc
 
+.import get_rand_byte
+
 .proc create_dvd_init
   current_dvd := locals+0
 
@@ -224,9 +227,21 @@ after_draw:
   STA dvd_health,x
 
   ; x and y pos
-  LDA init_dvd_x,x
+  INC rand_seed_l
+  JSR get_rand_byte
+  LDA random
+  AND #MASK_LOW_NIBBLE
+  TAY
+  LDA rand_x_pos,y
   STA dvd_x,x
-  LDA init_dvd_y,x
+  LDA random
+  AND #MASK_HIGH_NIBBLE
+  LSR
+  LSR
+  LSR
+  LSR
+  TAY
+  LDA rand_y_pos,y
   STA dvd_y,x
 
   INC num_active_dvds
@@ -575,3 +590,6 @@ init_dvd_y:
 
 init_dvd_flags:
 .byte %11010000, %11110000, %11100000
+
+.import rand_x_pos
+.import rand_y_pos

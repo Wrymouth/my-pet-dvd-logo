@@ -23,6 +23,8 @@
   timer_l: .res 1 ; ticks up every frame
   random: .res 1
   game_status: .res 1
+  game_state: .res 1
+  game_state_address: .res 2
   ; ppu data
   scroll: .res 1
   ppuctrl_settings: .res 1
@@ -186,8 +188,6 @@ loop:
   STA oam_offset_add
   LDA #239   ; Y is only 240 lines tall!
   STA scroll
-  ; set up dvds
-  JSR init_dvds
   ; write a palette
   LDX PPUSTATUS
   LDX #$3f
@@ -214,6 +214,11 @@ vblankwait:       ; wait for another vblank before continuing
   LDA #%00011110  ; turn on screen
   STA PPUMASK
   
+  LDA #GAME_STATE_TITLE
+  STA game_state
+  LDA game_status
+  ORA #GAME_STATUS_STATE_SWITCHED
+  STA game_status
 main_loop:
   JSR clear_oam
   LDA #$00
@@ -240,6 +245,55 @@ set_seed:
   JSR read_controller1
   JSR handle_released_and_held
 
+
+  
+  LDX game_state
+
+  LDA game_states_l,x
+  STA game_state_address+0
+  LDA game_states_h,x
+  STA game_state_address+1
+
+  JSR do_game_state
+
+  INC timer_l
+  BNE set_sleeping
+  INC timer_h
+set_sleeping:
+  ; Done processing; wait for next Vblank
+  INC sleeping
+sleep:
+  LDA sleeping
+  BNE sleep
+  JMP main_loop
+.endproc
+
+.proc do_game_state
+  JMP (game_state_address)
+.endproc
+
+.proc game_state_title
+  PUSH_REG
+  LDA pad1_first_pressed
+  AND #BTN_START
+  BEQ start_not_pressed
+  LDA #GAME_STATE_MAIN
+  STA game_state
+start_not_pressed:
+  PULL_REG
+  RTS
+.endproc
+
+.proc game_state_main
+  PUSH_REG
+  LDA game_status
+  AND #GAME_STATUS_STATE_SWITCHED
+  BEQ game_loop
+  LDA game_status
+  EOR #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+  JSR init_dvds
+game_loop:
   LDA pad1_first_pressed
   AND #BTN_START
   BEQ pause_not_pressed
@@ -258,6 +312,11 @@ pause_not_pressed:
   JSR update_foods
   JSR update_bullet
   JSR update_enemy
+
+  LDA num_active_dvds
+  BNE draw_stuff
+  LDA #GAME_STATE_LOSE
+  STA game_state
   
 draw_stuff:
   JSR clear_oam
@@ -269,17 +328,14 @@ draw_stuff:
 
   JSR draw_dvds
   JSR draw_enemy
+  PULL_REG
+  RTS
+.endproc
 
-  INC timer_l
-  BNE set_sleeping
-  INC timer_h
-set_sleeping:
-  ; Done processing; wait for next Vblank
-  INC sleeping
-sleep:
-  LDA sleeping
-  BNE sleep
-  JMP main_loop
+.proc game_state_lose
+  PUSH_REG
+  PULL_REG
+  RTS
 .endproc
 
 .segment "RODATA"
@@ -301,6 +357,15 @@ sprites:
 .byte $78, $08, $00, $88
 .byte $78, $09, $00, $88
 .byte $78, $0A, $00, $88
+
+game_states_l:
+.byte .lobyte(game_state_title)
+.byte .lobyte(game_state_main)
+.byte .lobyte(game_state_lose)
+game_states_h:
+.byte .hibyte(game_state_title)
+.byte .hibyte(game_state_main)
+.byte .hibyte(game_state_lose)
 
 .segment "VECTORS"
 .addr nmi_handler, reset_handler, irq_handler
