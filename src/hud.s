@@ -77,7 +77,7 @@ done:
   STA $0201,x
   LDA #$03
   STA $0202,x
-  LDA #$00
+  LDA #$38
   STA $0203,x
 
   TXA
@@ -93,7 +93,7 @@ done:
   STA $0201,x
   LDA #$03
   STA $0202,x
-  LDA #$08
+  LDA #$40
   STA $0203,x
 
   TXA
@@ -115,7 +115,7 @@ done:
   STA $0201,x
   LDA #$03
   STA $0202,x
-  LDA #$F0
+  LDA #$E8
   STA $0203,x
 
   TXA
@@ -131,7 +131,7 @@ done:
   STA $0201,x
   LDA #$03
   STA $0202,x
-  LDA #$F8
+  LDA #$F0
   STA $0203,x
 
   TXA

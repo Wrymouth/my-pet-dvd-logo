@@ -94,8 +94,9 @@
   STA OAMADDR
   LDA #$02
   STA OAMDMA
-  
-  ; set PPUCTRL
+
+
+set_ppuctrl:
   LDA ppuctrl_settings
   STA PPUCTRL
 
@@ -125,7 +126,7 @@
 .import init_dvds, update_dvds, draw_dvds
 .import create_enemy, update_enemy, draw_enemy
 .import handle_input_bullet, update_bullet, draw_bullet
-.import draw_background
+.import draw_background, draw_hud_bg
 .import draw_score, draw_food_inv
 
 .export get_rand_byte
@@ -186,6 +187,8 @@ loop:
   STA food_amount_l
   LDA #$04
   STA oam_offset_add
+  LDA #Y_OUT_OF_BOUNDS
+  STA bullet_y
   LDA #239   ; Y is only 240 lines tall!
   STA scroll
   ; write a palette
@@ -202,12 +205,12 @@ load_palettes:
   CPX #$20
   BNE load_palettes
 
-  JSR draw_background
-  JSR create_enemy
 
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
+  JSR draw_background
+
   LDA #%10010000  ; turn on NMIs, sprites use first pattern table
   STA ppuctrl_settings
   STA PPUCTRL
@@ -293,6 +296,14 @@ start_not_pressed:
   EOR #GAME_STATUS_STATE_SWITCHED
   STA game_status
   JSR init_dvds
+  JSR create_enemy
+  ; disable ppu
+  LDA #%00000110  ; turn on screen
+  STA PPUMASK
+  JSR draw_hud_bg
+  LDA #%00011110  ; turn on screen
+  STA PPUMASK
+  ; enable ppu
 game_loop:
   LDA pad1_first_pressed
   AND #BTN_START
@@ -340,14 +351,14 @@ draw_stuff:
 
 .segment "RODATA"
 palettes:
-.byte $0f, $19, $09, $29
-.byte $0f, $2b, $3c, $39
+.byte $0f, $00, $10, $20
+.byte $0f, $08, $18, $28 ; hp 2
 .byte $0f, $12, $23, $27
 .byte $0f, $0c, $07, $13
 
 .byte $0f, $05, $05, $15 ; hp 1
 .byte $0f, $08, $18, $28 ; hp 2
-.byte $0f, $1A, $2A, $3A ; hp 3
+.byte $0f, $1A, $11, $3A ; hp 3
 .byte $0f, $00, $10, $20 ; hp 4
 
 sprites:
