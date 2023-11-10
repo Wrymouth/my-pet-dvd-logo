@@ -318,7 +318,7 @@ check_timer:
   JSR destroy_bullet
   JMP done
 check_collision:
-  LDA enemy_flags
+  LDA bullet_flags
   AND #ENEMY_FLAG_ACTIVE
   BEQ done
   JSR check_bullet_enemy_collision
@@ -457,4 +457,4 @@ rand_x_pos:
 
 .export rand_y_pos
 rand_y_pos:
-.byte $42, $60, $50, $43, $c0, $a4, $aa, $6b, $8f, $70, $80, $46, $66, $94, $cc, $ba
+.byte $42, $60, $50, $43, $c0, $a4, $aa, $6b, $8f, $70, $80, $46, $66, $94, $b0, $ba

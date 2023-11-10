@@ -243,6 +243,8 @@ after_draw:
   TAY
   LDA rand_y_pos,y
   STA dvd_y,x
+  LDA #$00
+  STA dvd_bounces,x
 
   INC num_active_dvds
 

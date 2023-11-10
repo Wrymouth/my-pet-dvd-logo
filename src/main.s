@@ -65,7 +65,6 @@
   enemy_x_right: .res 1
   enemy_y_bottom: .res 1
   enemy_flags: .res 1
-  enemy_respawn_timer: .res 1
   
 .exportzp locals
 .exportzp timer_h, timer_l
@@ -181,9 +180,25 @@ loop:
   RTS
 .endproc
 
-.export main
-.proc main
-  ; initialize zero-page values
+
+.proc init_zeropage
+  PUSH_REG
+  LDA #$00
+  LDY #Y_OUT_OF_BOUNDS
+  STA score_h
+  STA score_l
+  STA food_amount_h
+  STY food_x
+  STY food_y
+  STA food_flags
+
+  STY bullet_x
+  STY bullet_y
+  STA bullet_flags
+
+  ; dvd data
+  STA num_active_dvds
+
   LDA #$90
   STA player_x
   LDA #FOOD_AMOUNT_START
@@ -198,6 +213,14 @@ loop:
   STA button_feed
   LDA #BTN_B
   STA button_shoot
+
+  PULL_REG
+  RTS
+.endproc
+
+.export main
+.proc main
+
   ; write a palette
   LDX PPUSTATUS
   LDX #$3f
@@ -281,6 +304,9 @@ sleep:
   LDA game_status
   AND #GAME_STATUS_STATE_SWITCHED
   BEQ title_loop
+  ; initialize zero-page values
+  JSR init_zeropage
+
   LDA #%00000110  ; turn off screen
   STA PPUMASK
   JSR draw_title_bg

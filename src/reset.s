@@ -14,6 +14,7 @@
     LDX #$00
     STX PPUCTRL
     STX PPUMASK
+    LDA #$00
   clear_memory:
     STA $0000, x
     STA $0100, x
