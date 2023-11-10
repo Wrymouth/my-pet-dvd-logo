@@ -3,7 +3,7 @@
 .include "include/macros.inc"
 
 .importzp locals
-.importzp timer_l, pad1_first_pressed
+.importzp timer_l, pad1_first_pressed, button_shoot
 .importzp rand_seed_l, random
 .importzp oam_current_index, oam_offset_add
 .importzp num_active_dvds, dvd_health, dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_flags
@@ -280,7 +280,7 @@ done:
 .proc handle_input_bullet
   PUSH_REG
   LDA pad1_first_pressed
-  AND #BTN_B
+  AND button_shoot
   BEQ do_not_create
   JSR create_bullet
 do_not_create:

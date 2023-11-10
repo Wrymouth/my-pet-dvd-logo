@@ -4,6 +4,23 @@
 
 .importzp locals
 
+.export set_default_palette_background
+.proc set_default_palette_background
+	PUSH_REG
+	; attr table
+	.repeat $1e, i
+		LDA PPUSTATUS
+		LDA #$23
+		STA PPUADDR
+		LDA #$c9+i
+		STA PPUADDR
+		LDA #%00000000
+		STA PPUDATA
+	.endrepeat
+	PULL_REG
+	RTS
+.endproc
+
 .export draw_background
 .proc draw_background
     PUSH_REG
@@ -186,6 +203,146 @@ draw_tile:
 	LDA #%00000100
 	STA PPUDATA
 
+	LDA PPUSTATUS
+	LDA #$23
+	STA PPUADDR
+	LDA #$c1
+	STA PPUADDR
+	LDA #%00000000
+	STA PPUDATA
+
+	.repeat 5, i
+		LDA PPUSTATUS
+		LDA #$23
+		STA PPUADDR
+		LDA #$f8+i
+		STA PPUADDR
+		LDA #%00000000
+		STA PPUDATA
+	.endrepeat
+
+	PULL_REG
+	RTS
+.endproc
+
+.export draw_title_bg
+.proc draw_title_bg
+	hud_bg_l := locals+0
+	hud_bg_h := locals+1
+	bg_size_l  := locals+2
+	bg_size_h  := locals+3
+	current_index_l := locals+4
+	current_index_h := locals+5
+
+	PUSH_REG
+	JSR set_default_palette_background
+	LDA #<background_title ; low
+	STA hud_bg_l
+	LDA #>background_title ; high
+	STA hud_bg_h
+
+	LDA #<960
+	STA bg_size_l
+	LDA #>960
+	STA bg_size_h
+	LDX #$20
+	STX current_index_h
+	LDX #$00
+	STX current_index_l
+draw_tile:
+	LDA current_index_h
+	STA PPUADDR
+	LDA current_index_l
+	STA PPUADDR
+	LDA (hud_bg_l), y
+	STA PPUDATA
+	INC16 hud_bg_l
+	INC16 current_index_l
+	DEC16 bg_size_l
+	LDA bg_size_l
+	BNE draw_tile
+	LDA bg_size_h
+	BNE draw_tile
+
+	;attr table
+	LDA PPUSTATUS
+	LDA #$23
+	STA PPUADDR
+	LDA #$cb
+	STA PPUADDR
+	LDA #%00010000
+	STA PPUDATA
+
+	.repeat 6, i
+		LDA PPUSTATUS
+		LDA #$23
+		STA PPUADDR
+		LDA #$c1+i
+		STA PPUADDR
+		LDA #%00000101
+		STA PPUDATA
+	.endrepeat
+	.repeat 5, i
+		LDA PPUSTATUS
+		LDA #$23
+		STA PPUADDR
+		LDA #$f8+i
+		STA PPUADDR
+		LDA #%00001010
+		STA PPUDATA
+	.endrepeat
+	PULL_REG
+	RTS
+.endproc
+
+.export draw_lose_background
+.proc draw_lose_background
+	hud_bg_l := locals+0
+	hud_bg_h := locals+1
+	bg_size_l  := locals+2
+	bg_size_h  := locals+3
+	current_index_l := locals+4
+	current_index_h := locals+5
+
+	PUSH_REG
+	LDA #<background_lose ; low
+	STA hud_bg_l
+	LDA #>background_lose ; high
+	STA hud_bg_h
+
+	LDA #<960
+	STA bg_size_l
+	LDA #>960
+	STA bg_size_h
+	LDX #$20
+	STX current_index_h
+	LDX #$00
+	STX current_index_l
+draw_tile:
+	LDA current_index_h
+	STA PPUADDR
+	LDA current_index_l
+	STA PPUADDR
+	LDA (hud_bg_l), y
+	STA PPUDATA
+	INC16 hud_bg_l
+	INC16 current_index_l
+	DEC16 bg_size_l
+	LDA bg_size_l
+	BNE draw_tile
+	LDA bg_size_h
+	BNE draw_tile
+
+	; attr table
+	.repeat $1e, i
+		LDA PPUSTATUS
+		LDA #$23
+		STA PPUADDR
+		LDA #$c9+i
+		STA PPUADDR
+		LDA #%11111111
+		STA PPUDATA
+	.endrepeat
 	PULL_REG
 	RTS
 .endproc
@@ -193,3 +350,7 @@ draw_tile:
 .segment "RODATA"
 background_dvds:
 	.incbin "dvd_bg.nam"
+background_title:
+	.incbin "title_bg.nam"
+background_lose:
+	.incbin "lose_bg.nam"

@@ -2,6 +2,7 @@
 .include "include/game_constants.inc"
 .include "include/macros.inc"
 
+.importzp button_feed
 .importzp oam_current_index, oam_offset_add
 .importzp score_l, score_h, food_amount_h, food_amount_l
 
@@ -70,7 +71,7 @@ done:
 .proc draw_score
   PUSH_REG
   LDX oam_current_index
-  LDA #$00
+  LDA #$08
   STA $0200,x
   LDA score_h
   ORA #HUD_MASK_CHR
@@ -86,7 +87,7 @@ done:
   STA oam_current_index
   TAX
 
-  LDA #$00
+  LDA #$08
   STA $0200,x
   LDA score_l
   ORA #HUD_MASK_CHR
@@ -108,7 +109,7 @@ done:
 .proc draw_food_inv
   PUSH_REG
   LDX oam_current_index
-  LDA #$00
+  LDA #$08
   STA $0200,x
   LDA food_amount_h
   ORA #HUD_MASK_CHR
@@ -124,7 +125,7 @@ done:
   STA oam_current_index
   TAX
 
-  LDA #$00
+  LDA #$08
   STA $0200,x
   LDA food_amount_l
   ORA #HUD_MASK_CHR
@@ -138,6 +139,74 @@ done:
   CLC
   ADC oam_offset_add
   STA oam_current_index
+  PULL_REG
+  RTS
+.endproc
+
+.export draw_title_buttons
+.proc draw_title_buttons
+  PUSH_REG
+  LDX oam_current_index
+  ; x = $0A, y = $14
+  LDA button_feed
+  CMP #BTN_A
+  BNE draw_alternate
+
+  LDA #$A0
+  STA $0200,x
+  LDA #$1A
+  STA $0201,x
+  LDA #$03
+  STA $0202,x
+  LDA #$50
+  STA $0203,x
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  
+  LDX oam_current_index
+  LDA #$A8
+  STA $0200,x
+  LDA #$1B
+  STA $0201,x
+  LDA #$03
+  STA $0202,x
+  LDA #$50
+  STA $0203,x
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+  JMP done
+draw_alternate:
+  LDA #$A0
+  STA $0200,x
+  LDA #$1B
+  STA $0201,x
+  LDA #$03
+  STA $0202,x
+  LDA #$50
+  STA $0203,x
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+
+  LDX oam_current_index
+  LDA #$A8
+  STA $0200,x
+  LDA #$1A
+  STA $0201,x
+  LDA #$03
+  STA $0202,x
+  LDA #$50
+  STA $0203,x
+  TXA
+  CLC
+  ADC oam_offset_add
+  STA oam_current_index
+done:
   PULL_REG
   RTS
 .endproc

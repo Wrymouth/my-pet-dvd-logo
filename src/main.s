@@ -13,6 +13,9 @@
   pad1_released: .res 1
   pad1_first_pressed: .res 1
 
+  button_feed: .res 1
+  button_shoot: .res 1
+
   oam_bytes_used: .res 1
   oam_current_index: .res 1
   oam_offset_add: .res 1
@@ -67,7 +70,7 @@
 .exportzp locals
 .exportzp timer_h, timer_l
 .exportzp rand_seed_h, rand_seed_l, random
-.exportzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed
+.exportzp pad1_pressed, pad1_held, pad1_released, pad1_first_pressed, button_feed, button_shoot
 .exportzp oam_bytes_used, oam_current_index, oam_offset_add
 .exportzp player_x, score_l, score_h, food_amount_h, food_amount_l
 .exportzp food_x, food_y, food_flags
@@ -126,8 +129,8 @@ set_ppuctrl:
 .import init_dvds, update_dvds, draw_dvds
 .import create_enemy, update_enemy, draw_enemy
 .import handle_input_bullet, update_bullet, draw_bullet
-.import draw_background, draw_hud_bg
-.import draw_score, draw_food_inv
+.import draw_background, draw_hud_bg, draw_title_bg, draw_lose_background
+.import draw_score, draw_food_inv, draw_title_buttons
 
 .export get_rand_byte
 .proc get_rand_byte
@@ -191,6 +194,10 @@ loop:
   STA bullet_y
   LDA #239   ; Y is only 240 lines tall!
   STA scroll
+  LDA #BTN_A
+  STA button_feed
+  LDA #BTN_B
+  STA button_shoot
   ; write a palette
   LDX PPUSTATUS
   LDX #$3f
@@ -209,13 +216,7 @@ load_palettes:
 vblankwait:       ; wait for another vblank before continuing
   BIT PPUSTATUS
   BPL vblankwait
-  JSR draw_background
 
-  LDA #%10010000  ; turn on NMIs, sprites use first pattern table
-  STA ppuctrl_settings
-  STA PPUCTRL
-  LDA #%00011110  ; turn on screen
-  STA PPUMASK
   
   LDA #GAME_STATE_TITLE
   STA game_state
@@ -277,12 +278,41 @@ sleep:
 
 .proc game_state_title
   PUSH_REG
+  LDA game_status
+  AND #GAME_STATUS_STATE_SWITCHED
+  BEQ title_loop
+  LDA #%00000110  ; turn off screen
+  STA PPUMASK
+  JSR draw_title_bg
+  LDA #%10010000  ; turn on NMIs, sprites use first pattern table
+  STA ppuctrl_settings
+  STA PPUCTRL
+  LDA #%00011110  ; turn on screen
+  STA PPUMASK
+  LDA game_status
+  EOR #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+title_loop:
   LDA pad1_first_pressed
   AND #BTN_START
   BEQ start_not_pressed
   LDA #GAME_STATE_MAIN
   STA game_state
+  LDA game_status
+  ORA #GAME_STATUS_STATE_SWITCHED
+  STA game_status
 start_not_pressed:
+  LDA pad1_first_pressed
+  AND #BTN_SELECT
+  BEQ select_not_pressed
+  LDA button_feed
+  STA locals+0
+  LDA button_shoot
+  STA button_feed
+  LDA locals+0
+  STA button_shoot
+select_not_pressed:
+  JSR draw_title_buttons
   PULL_REG
   RTS
 .endproc
@@ -298,12 +328,11 @@ start_not_pressed:
   JSR init_dvds
   JSR create_enemy
   ; disable ppu
-  LDA #%00000110  ; turn on screen
+  LDA #%00000110  ; turn off screen
   STA PPUMASK
   JSR draw_hud_bg
   LDA #%00011110  ; turn on screen
   STA PPUMASK
-  ; enable ppu
 game_loop:
   LDA pad1_first_pressed
   AND #BTN_START
@@ -326,9 +355,11 @@ pause_not_pressed:
 
   LDA num_active_dvds
   BNE draw_stuff
-  LDA #GAME_STATE_LOSE
+  LDA #GAME_STATE_LOSE_TIMER
   STA game_state
-  
+  LDA game_status
+  ORA #GAME_STATUS_STATE_SWITCHED
+  STA game_status
 draw_stuff:
   JSR clear_oam
   JSR draw_score
@@ -343,39 +374,78 @@ draw_stuff:
   RTS
 .endproc
 
+.proc game_state_lose_timer
+  local_timer := locals+0
+  PUSH_REG
+  LDA game_status
+  AND #GAME_STATUS_STATE_SWITCHED
+  BEQ lose_time_dec
+  LDA #LOSE_TIMER_BASE
+  STA local_timer
+  LDA game_status
+  EOR #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+lose_time_dec:
+  DEC local_timer
+  BNE loop
+  LDA #GAME_STATE_LOSE
+  STA game_state
+  LDA game_status
+  ORA #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+loop:
+  PULL_REG
+  RTS
+.endproc
+
 .proc game_state_lose
   PUSH_REG
+  LDA game_status
+  AND #GAME_STATUS_STATE_SWITCHED
+  BEQ restart_loop
+  LDA #%00000110  ; turn off screen
+  STA PPUMASK
+  JSR draw_lose_background
+  LDA #%00011110  ; turn on screen
+  STA PPUMASK
+  LDA game_status
+  EOR #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+restart_loop:
+  LDA pad1_first_pressed
+  AND #BTN_START
+  BEQ start_not_pressed
+  LDA #GAME_STATE_TITLE
+  STA game_state
+  LDA game_status
+  ORA #GAME_STATUS_STATE_SWITCHED
+  STA game_status
+start_not_pressed:
   PULL_REG
   RTS
 .endproc
 
 .segment "RODATA"
 palettes:
-.byte $0f, $00, $10, $20
+.byte $0f, $00, $10, $20 ; hp 4
 .byte $0f, $08, $18, $28 ; hp 2
-.byte $0f, $12, $23, $27
-.byte $0f, $0c, $07, $13
+.byte $0f, $21, $11, $3A ; hp 3
+.byte $0f, $21, $11, $15 ; hp 1
 
 .byte $0f, $05, $05, $15 ; hp 1
 .byte $0f, $08, $18, $28 ; hp 2
 .byte $0f, $1A, $11, $3A ; hp 3
 .byte $0f, $00, $10, $20 ; hp 4
 
-sprites:
-.byte $70, $05, $00, $80
-.byte $70, $06, $00, $88
-.byte $78, $07, $00, $80
-.byte $78, $08, $00, $88
-.byte $78, $09, $00, $88
-.byte $78, $0A, $00, $88
-
 game_states_l:
 .byte .lobyte(game_state_title)
 .byte .lobyte(game_state_main)
+.byte .lobyte(game_state_lose_timer)
 .byte .lobyte(game_state_lose)
 game_states_h:
 .byte .hibyte(game_state_title)
 .byte .hibyte(game_state_main)
+.byte .hibyte(game_state_lose_timer)
 .byte .hibyte(game_state_lose)
 
 .segment "VECTORS"

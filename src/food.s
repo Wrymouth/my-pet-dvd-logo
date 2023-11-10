@@ -4,7 +4,7 @@
 
 .importzp locals
 .importzp timer_l
-.importzp pad1_first_pressed
+.importzp pad1_first_pressed, button_feed
 .importzp oam_current_index, oam_offset_add
 .importzp food_amount_h, food_amount_l, food_flags, food_x, food_y
 .importzp dvd_x, dvd_x_right, dvd_y, dvd_y_bottom, dvd_health, dvd_flags
@@ -14,7 +14,7 @@
 .proc handle_input_food
   PUSH_REG
   LDA pad1_first_pressed
-  AND #BTN_A
+  AND button_feed
   BEQ do_not_create
   JSR create_food
 do_not_create:
